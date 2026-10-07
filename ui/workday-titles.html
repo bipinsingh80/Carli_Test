@@ -59,7 +59,7 @@
 
 <section class="grid-wrap">
   <table>
-    <thead><tr><th>Edit</th><th>Job Title</th><th>Job Short Name</th><th>Dept Short Name</th><th>Work Center Short Name</th></tr></thead>
+    <thead><tr><th>Edit</th><th>Job Title</th><th>Job Short Name</th><th>Dept Short Name</th><th>Work Center Short Name</th><th>Operation Edit Eligibility</th></tr></thead>
     <tbody id="rows"></tbody>
   </table>
 </section>
@@ -71,6 +71,7 @@
     <div class="field"><label>Job Short Name</label><input name="jobShortName" required></div>
     <div class="field"><label>Dept Short Name</label><input name="deptShortName"></div>
     <div class="field"><label>Work Center Short Name</label><input name="workCenterShortName"></div>
+    <div class="field"><label><input type="checkbox" name="opEditEligible" style="width:auto;height:auto"> Operation Edit Eligibility</label></div>
     <div class="btns"><button type="button" class="cancel" id="btnCancel">Cancel</button><button type="submit">Save</button></div>
   </form>
 </div>
@@ -78,10 +79,10 @@
 <script>
 // Sample data; replace with calls to the Workday Titles API.
 let data = [
-  { jobTitle: "Reconditioning Technician I",  jobShortName: "RECON_TECH_1", deptShortName: "RECON",  workCenterShortName: "DETAIL" },
-  { jobTitle: "Reconditioning Technician II", jobShortName: "RECON_TECH_2", deptShortName: "RECON",  workCenterShortName: "MECH" },
-  { jobTitle: "Glass Technician",             jobShortName: "GLASS_TECH",   deptShortName: "GLASS",  workCenterShortName: "GLASS_REPAIR" },
-  { jobTitle: "Paint Prep Specialist",        jobShortName: "PAINT_PREP",   deptShortName: "PAINT",  workCenterShortName: "PAINT_PREP" },
+  { jobTitle: "Reconditioning Technician I",  jobShortName: "RECON_TECH_1", deptShortName: "RECON",  workCenterShortName: "DETAIL", opEditEligible: true },
+  { jobTitle: "Reconditioning Technician II", jobShortName: "RECON_TECH_2", deptShortName: "RECON",  workCenterShortName: "MECH", opEditEligible: true },
+  { jobTitle: "Glass Technician",             jobShortName: "GLASS_TECH",   deptShortName: "GLASS",  workCenterShortName: "GLASS_REPAIR", opEditEligible: false },
+  { jobTitle: "Paint Prep Specialist",        jobShortName: "PAINT_PREP",   deptShortName: "PAINT",  workCenterShortName: "PAINT_PREP", opEditEligible: false },
 ];
 let editing = null;
 const $ = id => document.getElementById(id);
@@ -97,14 +98,16 @@ function render() {
     d.jobTitle.toLowerCase().includes(t) && d.jobShortName.toLowerCase().includes(s));
   $("rows").innerHTML = list.length ? list.map(({ d, i }) => `<tr>
       <td class="edit"><button class="edit-btn" data-i="${i}" title="Edit">&#9998;</button></td>
-      <td>${esc(d.jobTitle)}</td><td>${esc(d.jobShortName)}</td><td>${esc(d.deptShortName)}</td><td>${esc(d.workCenterShortName)}</td></tr>`).join("")
-    : `<tr><td colspan="5" class="empty">No records found</td></tr>`;
+      <td>${esc(d.jobTitle)}</td><td>${esc(d.jobShortName)}</td><td>${esc(d.deptShortName)}</td><td>${esc(d.workCenterShortName)}</td>
+      <td><input type="checkbox" class="elig" data-i="${i}" ${d.opEditEligible ? "checked" : ""}></td></tr>`).join("")
+    : `<tr><td colspan="6" class="empty">No records found</td></tr>`;
 }
 function openModal(i) {
   editing = i;
   const d = i == null ? {} : data[i];
   $("mTitle").textContent = i == null ? "Add Workday Title" : "Edit Workday Title";
   for (const k of ["jobTitle","jobShortName","deptShortName","workCenterShortName"]) $("form").elements[k].value = d[k] ?? "";
+  $("form").elements.opEditEligible.checked = !!d.opEditEligible;
   $("modal").classList.add("open");
 }
 $("btnSearch").onclick = render;
@@ -112,9 +115,11 @@ $("btnClear").onclick = () => { $("fTitle").value = ""; $("fShort").value = ""; 
 $("btnAdd").onclick = () => openModal(null);
 $("btnCancel").onclick = () => $("modal").classList.remove("open");
 $("rows").onclick = e => { const b = e.target.closest(".edit-btn"); if (b) openModal(+b.dataset.i); };
+$("rows").onchange = e => { if (e.target.classList.contains("elig")) data[+e.target.dataset.i].opEditEligible = e.target.checked; };
 $("form").onsubmit = e => {
   e.preventDefault();
   const r = Object.fromEntries(new FormData($("form")));
+  r.opEditEligible = $("form").elements.opEditEligible.checked;
   if (editing == null) data.push(r); else data[editing] = r;
   $("modal").classList.remove("open"); fillLists(); render();
 };
