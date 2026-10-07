@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recon Admin Portal - Workday Titles</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; font-size: 14px; background: #fafafa; color: #111; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; background: #fff; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 600; }
+  header .user { display: flex; gap: 12px; align-items: center; }
+  header .user span.email { border: 1px solid #1ca7d6; color: #1ca7d6; padding: 4px 8px; border-radius: 3px; }
+  nav.crumbs { background: #1b365d; color: #fff; padding: 13px 16px; font-size: 16px; text-transform: uppercase; }
+  nav.crumbs a { color: #3bb3d9; text-decoration: none; }
+  nav.crumbs b { font-weight: 600; }
+  .search { display: flex; align-items: flex-start; gap: 16px; padding: 6px 4px; border-bottom: 1px solid #ddd; height: 78px; }
+  .field { width: 300px; }
+  .field label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+  .field input { width: 100%; height: 40px; padding: 0 12px; border: 1px solid #aaa; border-radius: 3px; font-size: 15px; background: #fff; }
+  .spacer { flex: 1; }
+  button { background: #00a9d6; color: #fff; border: 0; border-radius: 3px; padding: 6px 10px; font-size: 13px; cursor: pointer; }
+  button:hover { background: #0090b8; }
+  .search .actions { margin-top: 16px; display: flex; gap: 14px; margin-right: 330px; }
+  .toolbar { display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #ddd; }
+  .grid-wrap { padding: 8px 4px; max-height: calc(100vh - 260px); overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #c9daf8; text-align: left; padding: 12px 6px; font-size: 13px; position: sticky; top: 0; }
+  td { padding: 11px 6px; }
+  td.edit { width: 70px; }
+  .edit-btn { background: none; color: #111; padding: 0 6px; font-size: 16px; }
+  .edit-btn:hover { background: none; color: #00a9d6; }
+  .empty { padding: 20px; text-align: center; color: #666; }
+  /* modal */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; padding: 20px; width: 420px; border-radius: 4px; }
+  .modal h2 { margin: 0 0 12px; font-size: 18px; }
+  .modal .field { width: 100%; margin-bottom: 12px; }
+  .modal .btns { display: flex; justify-content: flex-end; gap: 10px; }
+  .modal .btns .cancel { background: #888; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Recon Admin Portal</h1>
+  <div class="user"><span>PHX (IST)</span><span class="email">bipin.singh@carvana.com</span></div>
+</header>
+<nav class="crumbs"><a href="#">Recon Admin Portal</a> &gt; <a href="#">Manufacturing Master Data</a> &gt; <b>Workday Titles</b></nav>
+
+<section class="search">
+  <div class="field"><label for="fTitle">Job Title</label><input id="fTitle" list="dlTitle" placeholder="Enter" autocomplete="off"><datalist id="dlTitle"></datalist></div>
+  <div class="field"><label for="fShort">Job Short Name</label><input id="fShort" list="dlShort" placeholder="Enter" autocomplete="off"><datalist id="dlShort"></datalist></div>
+  <div class="spacer"></div>
+  <div class="actions"><button id="btnSearch">Search</button><button id="btnClear">Clear</button></div>
+</section>
+
+<section class="toolbar"><button id="btnAdd">Add</button></section>
+
+<section class="grid-wrap">
+  <table>
+    <thead><tr><th>Edit</th><th>Job Title</th><th>Job Short Name</th><th>Dept Short Name</th><th>Work Center Short Name</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</section>
+
+<div class="modal-bg" id="modal">
+  <form class="modal" id="form">
+    <h2 id="mTitle">Add Workday Title</h2>
+    <div class="field"><label>Job Title</label><input name="jobTitle" required></div>
+    <div class="field"><label>Job Short Name</label><input name="jobShortName" required></div>
+    <div class="field"><label>Dept Short Name</label><input name="deptShortName"></div>
+    <div class="field"><label>Work Center Short Name</label><input name="workCenterShortName"></div>
+    <div class="btns"><button type="button" class="cancel" id="btnCancel">Cancel</button><button type="submit">Save</button></div>
+  </form>
+</div>
+
+<script>
+// Sample data; replace with calls to the Workday Titles API.
+let data = [
+  { jobTitle: "Reconditioning Technician I",  jobShortName: "RECON_TECH_1", deptShortName: "RECON",  workCenterShortName: "DETAIL" },
+  { jobTitle: "Reconditioning Technician II", jobShortName: "RECON_TECH_2", deptShortName: "RECON",  workCenterShortName: "MECH" },
+  { jobTitle: "Glass Technician",             jobShortName: "GLASS_TECH",   deptShortName: "GLASS",  workCenterShortName: "GLASS_REPAIR" },
+  { jobTitle: "Paint Prep Specialist",        jobShortName: "PAINT_PREP",   deptShortName: "PAINT",  workCenterShortName: "PAINT_PREP" },
+];
+let editing = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+
+function fillLists() {
+  $("dlTitle").innerHTML = [...new Set(data.map(d => d.jobTitle))].map(v => `<option value="${esc(v)}">`).join("");
+  $("dlShort").innerHTML = [...new Set(data.map(d => d.jobShortName))].map(v => `<option value="${esc(v)}">`).join("");
+}
+function render() {
+  const t = $("fTitle").value.trim().toLowerCase(), s = $("fShort").value.trim().toLowerCase();
+  const list = data.map((d, i) => ({ d, i })).filter(({ d }) =>
+    d.jobTitle.toLowerCase().includes(t) && d.jobShortName.toLowerCase().includes(s));
+  $("rows").innerHTML = list.length ? list.map(({ d, i }) => `<tr>
+      <td class="edit"><button class="edit-btn" data-i="${i}" title="Edit">&#9998;</button></td>
+      <td>${esc(d.jobTitle)}</td><td>${esc(d.jobShortName)}</td><td>${esc(d.deptShortName)}</td><td>${esc(d.workCenterShortName)}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="empty">No records found</td></tr>`;
+}
+function openModal(i) {
+  editing = i;
+  const d = i == null ? {} : data[i];
+  $("mTitle").textContent = i == null ? "Add Workday Title" : "Edit Workday Title";
+  for (const k of ["jobTitle","jobShortName","deptShortName","workCenterShortName"]) $("form").elements[k].value = d[k] ?? "";
+  $("modal").classList.add("open");
+}
+$("btnSearch").onclick = render;
+$("btnClear").onclick = () => { $("fTitle").value = ""; $("fShort").value = ""; render(); };
+$("btnAdd").onclick = () => openModal(null);
+$("btnCancel").onclick = () => $("modal").classList.remove("open");
+$("rows").onclick = e => { const b = e.target.closest(".edit-btn"); if (b) openModal(+b.dataset.i); };
+$("form").onsubmit = e => {
+  e.preventDefault();
+  const r = Object.fromEntries(new FormData($("form")));
+  if (editing == null) data.push(r); else data[editing] = r;
+  $("modal").classList.remove("open"); fillLists(); render();
+};
+fillLists(); render();
+</script>
+</body>
+</html>
